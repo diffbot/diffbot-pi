@@ -1,0 +1,62 @@
+{
+  "name": "@diffbot/pi",
+  "version": "0.1.0",
+  "description": "Pi package for Diffbot — structured web knowledge tools for the Pi coding agent",
+  "type": "module",
+  "license": "MIT",
+  "author": "Diffbot",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-coding-agent",
+    "diffbot",
+    "knowledge-graph",
+    "dql",
+    "extract",
+    "entities"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/diffbot/diffbot-pi.git"
+  },
+  "homepage": "https://github.com/diffbot/diffbot-pi#readme",
+  "bugs": {
+    "url": "https://github.com/diffbot/diffbot-pi/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "extensions",
+    "skills",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@diffbot/typescript": "^0.1.0"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.80.10",
+    "@types/node": "^22.15.21",
+    "typebox": "^1.3.6",
+    "typescript": "^5.8.3"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  }
+}
