@@ -57,6 +57,7 @@
     ],
     "skills": [
       "./skills"
-    ]
+    ],
+    "image": "https://raw.githubusercontent.com/diffbot/diffbot-pi/main/assets/preview.png"
   }
 }
