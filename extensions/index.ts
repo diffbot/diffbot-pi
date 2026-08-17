@@ -9,16 +9,13 @@ import {
   crawlGetJob,
   crawlListJobs,
   dql,
-  dqlFetchOntology,
   dqlParallel,
-  dqlRefreshOntology,
   entities,
   extract,
-  resolveToken,
   webSearch,
   type JsonObject,
 } from "@diffbot/typescript";
-import { existsSync } from "node:fs";
+import { FileOntologyStore, resolveToken } from "@diffbot/typescript/node";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { Type } from "typebox";
@@ -26,8 +23,6 @@ import { Type } from "typebox";
 type ToolDetails = { error?: string };
 
 const ONTOLOGY_PATH = join(homedir(), ".diffbot", "ontology.json");
-
-let ontologyCache: Ontology | null = null;
 
 function getClient(): DiffbotClient {
   const token = resolveToken();
@@ -102,23 +97,6 @@ function formatEntitiesDql(data: JsonObject): string {
   }
   if (!ids.length) return "";
   return `id:or(${ids.map((id) => `"${id}"`).join(",")})`;
-}
-
-async function loadOntology(client: DiffbotClient, refresh = false): Promise<Ontology> {
-  if (!refresh && ontologyCache) return ontologyCache;
-
-  if (!refresh && existsSync(ONTOLOGY_PATH)) {
-    ontologyCache = await Ontology.fromPath(ONTOLOGY_PATH);
-    return ontologyCache;
-  }
-
-  try {
-    await dqlRefreshOntology(client, ONTOLOGY_PATH);
-    ontologyCache = await Ontology.fromPath(ONTOLOGY_PATH);
-  } catch {
-    ontologyCache = await dqlFetchOntology(client);
-  }
-  return ontologyCache;
 }
 
 export default function (pi: ExtensionAPI) {
@@ -265,16 +243,16 @@ export default function (pi: ExtensionAPI) {
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       try {
         const db = getClient();
+        const store = new FileOntologyStore(db, ONTOLOGY_PATH);
         const action = params.action.trim().toLowerCase();
 
         if (action === "refresh") {
-          await dqlRefreshOntology(db, ONTOLOGY_PATH);
-          ontologyCache = await Ontology.fromPath(ONTOLOGY_PATH);
+          await store.load({ refresh: true });
           await db.close();
           return ok(formatJson({ refreshed: ONTOLOGY_PATH }));
         }
 
-        const ont = await loadOntology(db, false);
+        const ont = await store.load();
         await db.close();
 
         switch (action) {

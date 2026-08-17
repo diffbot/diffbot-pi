@@ -39,7 +39,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@diffbot/typescript": "^0.1.0"
+    "@diffbot/typescript": "^0.2.0"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",

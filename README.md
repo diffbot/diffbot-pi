@@ -27,7 +27,7 @@ If you also have [`diffbot-skills`](https://github.com/diffbot/diffbot-skills) d
 
 ## Auth
 
-Token resolution (same as [`@diffbot/typescript`](https://www.npmjs.com/package/@diffbot/typescript)):
+Token resolution (via `resolveToken` from [`@diffbot/typescript/node`](https://www.npmjs.com/package/@diffbot/typescript)):
 
 1. `DIFFBOT_API_TOKEN` environment variable
 2. `DIFFBOT_API_TOKEN=...` in `~/.diffbot/credentials`
