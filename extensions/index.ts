@@ -121,7 +121,8 @@ export default function (pi: ExtensionAPI) {
     description:
       "Query Diffbot Knowledge Graph with DQL (Diffbot Query Language). Use for structured entity lookup: organizations, people, articles, products, and more. " +
       "Entity records can be very large. Prefer `filter` (semicolon-separated fields) or `format`/`exportspec` for CSV exports. " +
-      "Use diffbot_dql_probe for hit-count checks and diffbot_ontology to look up fields before querying.",
+      "Use diffbot_dql_probe for hit-count checks and diffbot_ontology to look up fields before querying. " +
+      "A missing or null field in a json export usually means it was not requested — add it to `filter`, or verify with `has:<field>` in the query before calling it unpopulated.",
     parameters: Type.Object({
       query: Type.String({
         description: 'DQL query, e.g. type:Organization name:"Diffbot"',
@@ -303,7 +304,8 @@ export default function (pi: ExtensionAPI) {
     name: "diffbot_extract",
     label: "Diffbot Extract",
     description:
-      "Extract structured content from a URL via Diffbot Extract. Prefer this over raw HTML fetching when you need clean article/product/page structure.",
+      "Extract structured content from a URL via Diffbot Extract — a live fetch and parse, seconds per call. " +
+      "Try diffbot_web_search with `url:<URL>` first (~300ms index hit vs seconds live); come here when that lookup is empty, you need the whole document rather than chunks, the page's current state is the question, or you need extract-only fields (author, images, links, typed product/discussion parses).",
     parameters: Type.Object({
       url: Type.String({ description: "Page URL to extract" }),
       api: Type.Optional(
@@ -338,7 +340,9 @@ export default function (pi: ExtensionAPI) {
     name: "diffbot_web_search",
     label: "Diffbot Web Search",
     description:
-      "Search the web with Diffbot Web Search. Returns ranked pages with titles and URLs from Diffbot's index.",
+      "Search the web with Diffbot Web Search. Returns ranked pages with titles, URLs, dates, and relevant content chunks in one call. " +
+      "Before fetching any public URL with curl or any other tool, call this with query `url:<URL> <what you want>` — it returns Diffbot's already-parsed copy of the page in ~300ms and works on pages that block live fetchers. " +
+      "Prefer the index for reference prose (docs, articles, specs); fetch live only for current-state pages (status, prices, versions, feeds), non-page URLs (API endpoints, raw files, PDFs), or when the lookup comes back empty.",
     parameters: Type.Object({
       query: Type.String({ description: "Search query text" }),
       numResults: Type.Optional(

@@ -1,11 +1,12 @@
 ---
 name: diffbot-dql
-description: "Query the Diffbot Knowledge Graph using DQL (Diffbot Query Language). Use when the user wants to search for organizations, people, or articles in the Diffbot KG. Triggers on: search diffbot, query knowledge graph, dql search, find companies, find news articles, find people, latest news"
+description: "Query the Diffbot Knowledge Graph using DQL (Diffbot Query Language). The general-purpose layer beneath the entity-specific skills — use it for any entity type or query shape they do not cover: products, patents, job posts, facet aggregations, ontology exploration, and cross-entity queries. Triggers on: dql, query knowledge graph, search diffbot, diffbot kg, ontology lookup, facet query, entity types, raw dql"
 ---
 
 # Diffbot Knowledge Graph Search (DQL)
 
-Query the Diffbot Knowledge Graph via the Pi tools backed by `@diffbot/typescript`. Do not use the Python CLI.
+Query the Diffbot Knowledge Graph via the Pi tools backed by `@diffbot/typescript`. Do
+not use the Python CLI.
 
 ## Tools
 
@@ -47,9 +48,11 @@ type:Organization location.city.name:"San Francisco" investments.investors.name:
 type:Article categories.name:"War and Conflicts" tags.label:"Ethiopia" date>="2020-11-01" date<="2022-11-30" sortBy:date
 ```
 
-Every DQL string starts with `type:`. Prefer common types (`Organization`, `Person`, `Article`, `Product`), then look up others via ontology.
+Every DQL string starts with `type:`. Prefer common types (`Organization`, `Person`,
+`Article`, `Product`), then look up others via ontology.
 
-**Look up fields before using them:**
+**Look up fields before using them.** Issue multiple `diffbot_ontology` calls in
+parallel, in a single message, so they don't queue:
 
 ```
 diffbot_ontology({ action: "fields", name: "Organization", search: "location" })
@@ -67,14 +70,34 @@ diffbot_ontology({ action: "search", search: "asset" })
 | Regex | `re:field:"pattern"` | `re:name:"^Apple"` |
 | Exact | `strict:field:"value"` | `strict:name:"Apple Inc"` |
 | Comparisons | `field>N` / `<` / `!=` | `nbEmployees>500` |
+| Max / Min | `max:field:N` / `min:field:N` | `max:capitalization.value:1000000` |
 | Range | `range:field:N-M` | `range:nbEmployees:10-100` |
 | OR | `or(v1,v2)` | `categories.name:or("Software companies","Hardware companies")` |
 | NOT | `not(condition)` | `not(isPublic:true)` |
 | Near | `near(...)` | `near(type:Place name:"San Francisco")` |
 | Similar | `similarTo(...)` | `similarTo(name:"OpenAI")` |
 | Has / get | `has:field` / `get:field` | `has:subsidiaries get:subsidiaries` |
+| Get (exclude) | `get:!field` | `get:!nbEmployeesMax,!phoneNumbers` |
 | Facet | `facet:field` | `facet:locations.city.name` |
+| Facet with ranges | `facet[a:b,b:c]:field` | `facet[100:500,500:1000]:nbEmployees` |
+| Facet with values | `facet["a","b"]:field` | `facet["Austin","Seattle"]:locations.city.name` |
 | Sort | `sortBy:field` / `revSortBy:field` | `sortBy:date` |
+
+**`field:"value"` is CONTAINS, not equals.** This is the root of most over-matching:
+`name:"Apple"` returns 68,068 organizations, `strict:name:"Apple"` returns 1,426, and
+`strict:name:"Apple Inc."` returns 1. Whenever the user names a specific entity, start
+with `strict:`.
+
+Two consequences worth internalizing:
+
+- **`or()` is redundant when one string contains another.** `investment.series:"Series A"`
+  already matches `"Series A-1"`, so `or("Series A","Series A-1")` returns an identical
+  count.
+- **`or()` is mandatory when the spellings genuinely differ.** An abbreviation is not a
+  substring of its expansion: `employments.title:"Chief Executive Officer"` finds 521,798
+  people, while `or("Chief Executive Officer","CEO")` finds 2,620,747.
+
+**Regex is slow and compute-heavy.** Avoid it; if used, keep patterns short and simple.
 
 **Subqueries** — co-constrain nested composites with `{}`:
 
@@ -82,10 +105,41 @@ diffbot_ontology({ action: "search", search: "asset" })
 type:Person employments.{employer.name:"Diffbot" isCurrent:true}
 ```
 
-Prefer singular primary fields (`location`) over plurals (`locations`) when filtering on the primary fact.
+Without `{}` the two conditions are independent (a person with *any* Diffbot employment
+AND *any* current employment — possibly different ones). Subqueries only work on
+composite-typed list fields; check the ontology to confirm.
 
-**Article tips:** use `categories.name`, refine with `tags.label`, end with `sortBy:date` unless asked otherwise.  
-**Organization tips:** start with `categories.name`.
+**Singular vs plural fields (primary vs all/historical)**
+
+| Singular (primary) | Plural (all/historical) |
+| ------------------ | ----------------------- |
+| `location` | `locations` |
+| `name` | `allNames` |
+| `description` | `allDescriptions` |
+| `homepageUri` | `allUris` |
+
+Prefer the singular form when filtering on the *primary* fact — HQ vs any office.
+
+**`similarTo`** (Organization only) returns a ranked list of exactly `size` results;
+`hits` mirrors the requested size rather than a true match count. Other clauses compose
+and narrow within the similarity search. **It cannot be validated with
+`diffbot_dql_probe`** — probe runs at `size=0`, where `similarTo` always returns 0 —
+validate with a small export (`size: 10`) instead.
+
+**`near`** operates on a single anchor entity — if the subquery returns multiple, only
+the first is used. Default radius 15km; specify with `mi` or `km`.
+
+**The default JSON payload is not the full entity — `get:` also *adds* fields.** Many
+filterable fields are simply absent from a plain export: `type:Organization
+strict:name:"Tesla"` returns no `ceo` and no `founders` key at all; add
+`get:name,ceo,founders` and both populate. The same is true of `Place.population` and
+`Place.isPartOf`. So a missing or null field in a JSON export usually means you didn't
+request it, not that the data is absent — **confirm with `has:<field>` before writing
+"unpopulated" anywhere**. `exportspec` requests its CSV columns automatically, so only
+raw JSON exports need `get:`.
+
+**Article tips:** use `categories.name`, refine with `tags.label`, end with `sortBy:date`
+unless asked otherwise. **Organization tips:** start with `categories.name`.
 
 ### Step 3 — probe variants before committing
 
@@ -97,6 +151,10 @@ diffbot_dql_probe({
   ]
 })
 ```
+
+The probe fires all variants in parallel and fails the whole batch if any single variant
+is rejected by the API — fix the offending clause and re-run rather than assuming the
+others were checked.
 
 ### Step 4 — export and display
 
@@ -118,4 +176,17 @@ diffbot_dql({
 })
 ```
 
-Always show the final DQL in a code block. For articles, prefer `summary` over raw `text`/`content`.
+`exportspec` renders only the **primary** value of list/composite fields — one investor,
+one location. Use JSON when full lists matter.
+
+Always show the final DQL in a code block. For articles, prefer `summary` over raw
+`text`/`content`.
+
+## Performance discipline
+
+- **One ontology lookup per message is wasteful.** Issue parallel `diffbot_ontology`
+  tool calls in the same message — they execute concurrently.
+- **Never serial-loop queries for hit counts.** Use `diffbot_dql_probe` for any
+  N-variant check; it parallelizes internally.
+- **Don't re-run `ontology refresh` mid-session.** The ontology is cached on disk
+  (`~/.diffbot/ontology.json`) and in-process; refresh once at the start.

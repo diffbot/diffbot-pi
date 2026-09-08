@@ -59,6 +59,9 @@ diffbot_crawl_delete({ jobName: "example-docs" })
 - `job_created` — `details.job_name`
 - `url_processed` — `details.url`, `details.status`
 
+In markdown renderings, `[!]` marks pages that were crawled but failed extraction — not
+HTTP failures (those are skipped silently).
+
 ## Tips
 
 - Prefer `watch: false` for large crawls; poll with `diffbot_crawl_jobs`.

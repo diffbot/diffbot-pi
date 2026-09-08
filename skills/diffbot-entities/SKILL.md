@@ -49,3 +49,7 @@ diffbot_dql({
 
 - Confidence = right KG record?; salience = how central to the text?
 - Prefer entities → DQL-by-id over guessing names in DQL when starting from free text.
+- Document-level sentiment is returned above the entity list when present — per-entity
+  sentiment is the `sentiment` field on each entity.
+- Entities without a Diffbot ID were recognized but not linked to the KG (proper noun
+  detection without a record match) — they cannot be used in `id:` lookups.

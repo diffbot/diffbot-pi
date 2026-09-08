@@ -56,6 +56,11 @@ Workflow guidance for those tools (parity with [`diffbot-skills`](https://github
 | Skill | Command |
 |-------|---------|
 | DQL / Knowledge Graph | `/skill:diffbot-dql` |
+| Organizations (companies) | `/skill:diffbot-organizations` |
+| People | `/skill:diffbot-people` |
+| Places (geography) | `/skill:diffbot-places` |
+| Deals (funding / M&A) | `/skill:diffbot-deals` |
+| News & articles | `/skill:diffbot-news` |
 | Extract | `/skill:diffbot-extract` |
 | Web Search | `/skill:diffbot-web-search` |
 | Entities (NLP) | `/skill:diffbot-entities` |
