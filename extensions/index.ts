@@ -140,7 +140,7 @@ export default function (pi: ExtensionAPI) {
       filter: Type.Optional(
         Type.String({
           description:
-            'Semicolon-separated fields (e.g. "name;summary;homepageUri") or JsonPath to restrict returned fields.',
+            'Field-path filter. Use space-separated dot-notation paths (e.g. "title datePublished url summary"), or ;-separated JsonPath filters each prefixed with $ (e.g. "$.title;$.datePublished"). Do NOT join bare field names with ; -- that is rejected (422).',
         }),
       ),
       format: Type.Optional(
@@ -159,10 +159,17 @@ export default function (pi: ExtensionAPI) {
       try {
         const db = getClient();
         const format = params.format ?? "json";
+        // The API rejects `;`-joined bare field paths (422). If the filter is
+        // not JsonPath (no `$`), convert `;`-separated field names into the
+        // space-separated dot-notation form the API expects.
+        const filter =
+          params.filter != null && !params.filter.includes("$")
+            ? params.filter.split(";").map((s) => s.trim()).filter(Boolean).join(" ")
+            : params.filter;
         const data = await dql(db, params.query, {
           size: params.size,
           from: params.from,
-          filter: params.filter,
+          filter,
           format,
           exportspec: params.exportspec,
           raw: format !== "json",
