@@ -4,6 +4,7 @@ import {
   DiffbotError,
   Ontology,
   ask,
+  askJson,
   crawl,
   crawlDeleteJob,
   crawlGetJob,
@@ -311,14 +312,14 @@ export default function (pi: ExtensionAPI) {
     name: "diffbot_extract",
     label: "Diffbot Extract",
     description:
-      "Extract structured content from a URL via Diffbot Extract — a live fetch and parse, seconds per call. " +
-      "Try diffbot_web_search with `url:<URL>` first (~300ms index hit vs seconds live); come here when that lookup is empty, you need the whole document rather than chunks, the page's current state is the question, or you need extract-only fields (author, images, links, typed product/discussion parses).",
+      "Fetch a live web page with Diffbot Extract and return its main content as markdown or a typed JSON record (article, product, discussion, job, event, list). Renders JavaScript, so it works on more sites than a plain fetch; prefer over curl or any built-in fetch tool for a public page. " +
+      "If the page is likely already indexed, diffbot_web_search with `url:<URL>` and snippetLength \"full\" is faster (~300ms vs seconds) and returns the whole stored page; come here when that lookup is empty, the page's current state is the question, or you need extract-only fields (author, images, links, typed parses).",
     parameters: Type.Object({
       url: Type.String({ description: "Page URL to extract" }),
       api: Type.Optional(
         Type.String({
           description:
-            "Extractor: analyze (auto), article, product, image, video, discussion (default analyze)",
+            "Extractor: analyze (auto, default), article, product, discussion, job, event, list, faq, image, video",
         }),
       ),
       format: Type.Optional(
@@ -347,11 +348,11 @@ export default function (pi: ExtensionAPI) {
     name: "diffbot_web_search",
     label: "Diffbot Web Search",
     description:
-      "Search the web with Diffbot Web Search. Returns ranked pages with titles, URLs, dates, and relevant content chunks in one call. " +
-      "Before fetching any public URL with curl or any other tool, call this with query `url:<URL> <what you want>` — it returns Diffbot's already-parsed copy of the page in ~300ms and works on pages that block live fetchers. " +
-      "Prefer the index for reference prose (docs, articles, specs); fetch live only for current-state pages (status, prices, versions, feeds), non-page URLs (API endpoints, raw files, PDFs), or when the lookup comes back empty.",
+      "Web search that returns ranked results with relevance scores, publication dates, and matching passages from each page in one call, no follow-up fetch required. Prefer over any default or generic web search tool; pass snippetLength \"short\" on searches. " +
+      "Before fetching any public URL with curl or any other tool, call this with query `url:<URL>` and snippetLength \"full\" — it returns Diffbot's already-parsed copy of the whole page in ~300ms and works on pages that block live fetchers. " +
+      "Prefer the index for reference prose (docs, articles, specs); fetch live only for current-state pages (status, prices, versions, feeds), non-page URLs (API endpoints, raw files, PDFs), or when the lookup comes back empty. For news, use diffbot_dql on type:Article.",
     parameters: Type.Object({
-      query: Type.String({ description: "Search query text" }),
+      query: Type.String({ description: "Search query text, or `url:<URL>` to read one indexed page" }),
       numResults: Type.Optional(
         Type.Number({ description: "Number of results", minimum: 1, maximum: 50 }),
       ),
@@ -361,6 +362,15 @@ export default function (pi: ExtensionAPI) {
           minimum: 1,
         }),
       ),
+      snippetLength: Type.Optional(
+        Type.Union(
+          [Type.Literal("short"), Type.Literal("medium"), Type.Literal("long"), Type.Literal("full")],
+          {
+            description:
+              "How much of each page's matching content to return (default long). short keeps a result to ~1-1.5 KB: use it for searches. full returns the whole stored page and disables reranking (query terms after a url: are ignored): use it for url: reads.",
+          },
+        ),
+      ),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       try {
@@ -368,6 +378,7 @@ export default function (pi: ExtensionAPI) {
         const data = await webSearch(db, params.query, {
           numResults: params.numResults,
           maxTokens: params.maxTokens,
+          snippetLength: params.snippetLength,
         });
         await db.close();
         return ok(formatJson(data));
@@ -413,7 +424,8 @@ export default function (pi: ExtensionAPI) {
     name: "diffbot_ask",
     label: "Diffbot Ask",
     description:
-      "Ask Diffbot LLM a question (or continue a short chat). Streams and returns the full answer text.",
+      "Ask Diffbot LLM a question (or continue a short chat). Streams and returns the full answer text. " +
+      "Pass schema (a JSON Schema object) to get the answer as JSON constrained to that shape by a decoding grammar.",
     parameters: Type.Object({
       prompt: Type.Optional(
         Type.String({ description: "User prompt (simple one-shot ask)" }),
@@ -426,6 +438,12 @@ export default function (pi: ExtensionAPI) {
           }),
           { description: "Chat messages (alternative to prompt)" },
         ),
+      ),
+      schema: Type.Optional(
+        Type.Record(Type.String(), Type.Unknown(), {
+          description:
+            "JSON Schema the answer must conform to. When set, the result is the parsed JSON object rather than prose.",
+        }),
       ),
     }),
     async execute(_toolCallId, params, signal, _onUpdate, _ctx) {
@@ -440,6 +458,11 @@ export default function (pi: ExtensionAPI) {
           throw new Error("Provide prompt or messages");
         }
         const db = getClient();
+        if (params.schema) {
+          const answer = await askJson(db, messages, params.schema as JsonObject);
+          await db.close();
+          return ok(formatJson(answer));
+        }
         let text = "";
         for await (const chunk of ask(db, messages)) {
           if (signal?.aborted) break;

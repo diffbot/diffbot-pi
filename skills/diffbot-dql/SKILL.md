@@ -1,6 +1,6 @@
 ---
 name: diffbot-dql
-description: "Query the Diffbot Knowledge Graph using DQL (Diffbot Query Language). The general-purpose layer beneath the entity-specific skills — use it for any entity type or query shape they do not cover: products, patents, job posts, facet aggregations, ontology exploration, and cross-entity queries. Triggers on: dql, query knowledge graph, search diffbot, diffbot kg, ontology lookup, facet query, entity types, raw dql"
+description: "Runs a raw DQL (Diffbot Query Language) query against the Diffbot Knowledge Graph. The general-purpose layer beneath the entity-specific Diffbot skills: use it for entity types and query shapes they do not cover, such as products, patents, job posts, facet aggregations, cross-entity queries, an id filter from entity resolution, or ontology lookups. Triggers on: dql, query knowledge graph, search diffbot, diffbot kg, ontology lookup, facet query, entity types, raw dql."
 ---
 
 # Diffbot Knowledge Graph Search (DQL)
@@ -51,8 +51,10 @@ type:Article categories.name:"War and Conflicts" tags.label:"Ethiopia" date>="20
 Every DQL string starts with `type:`. Prefer common types (`Organization`, `Person`,
 `Article`, `Product`), then look up others via ontology.
 
-**Look up fields before using them.** Issue multiple `diffbot_ontology` calls in
-parallel, in a single message, so they don't queue:
+**Look up fields before using them.** An unknown field path is silently ignored (the
+query runs as if the clause were absent) and a guessed value returns zero, so confirm both
+with the ontology first. Issue multiple `diffbot_ontology` calls in parallel, in a single
+message, so they don't queue:
 
 ```
 diffbot_ontology({ action: "fields", name: "Organization", search: "location" })
@@ -98,6 +100,11 @@ Two consequences worth internalizing:
   people, while `or("Chief Executive Officer","CEO")` finds 2,620,747.
 
 **Regex is slow and compute-heavy.** Avoid it; if used, keep patterns short and simple.
+
+**Do not add a sort unless the ordering is the question.** The default ranking already
+encodes relevance and prominence, and an explicit sort overrides it, usually for the
+worse. The exceptions are articles (`sortBy:date`) and deals (`revSortBy:investment.date`),
+which `/skill:diffbot-news` and `/skill:diffbot-deals` apply by default.
 
 **Subqueries** — co-constrain nested composites with `{}`:
 
@@ -154,7 +161,9 @@ diffbot_dql_probe({
 
 The probe fires all variants in parallel and fails the whole batch if any single variant
 is rejected by the API — fix the offending clause and re-run rather than assuming the
-others were checked.
+others were checked. Read the counts against the bare `type:X` count: a variant that
+matches it exactly had a field path silently dropped, and zero means a wrong value. Never
+probe an unfiltered `type:Article`.
 
 ### Step 4 — export and display
 
