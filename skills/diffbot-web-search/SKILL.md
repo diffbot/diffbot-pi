@@ -90,7 +90,7 @@ current state matters.
 | `maxTokens` | none | Caps total response tokens — trims from the bottom of the ranking |
 | `snippetLength` | `long` | `short`, `medium`, `long` or `full`: how much of each page's matching content comes back in `content`. **Always pass `"short"` for searches** — ~1–1.5 KB per result instead of 2.5–6 KB, and the matching sentence is still in the chunk. **Pass `"full"` for a `url:` read** of one whole page; it disables reranking, so query terms are ignored |
 
-Requires `@diffbot/typescript` >= 0.3.0 (`snippetLength` was added in 0.3.0).
+Requires `@diffbot/typescript` ^0.6.0 (`snippetLength` was added in 0.3.0).
 
 ## Workflow
 

@@ -81,7 +81,19 @@ pi -e .
 pi install .
 ```
 
-Depends on [`@diffbot/typescript`](https://www.npmjs.com/package/@diffbot/typescript) from npm.
+0.4.0 depends on [`@diffbot/typescript`](https://www.npmjs.com/package/@diffbot/typescript) ^0.6.0. DQL goes through the SDK `dql()` helper, which posts a JSON body; the token stays a query parameter. `package-lock.json` still records the published 0.3.0 tarball — run `npm update @diffbot/typescript` once 0.6.0 is on npm. A missing crawl job from `crawlGetJob()` is `undefined`.
+
+## Release
+
+Publishing uses npm trusted publishing from `.github/workflows/release.yml` (no npm token).
+
+1. Bump `version` in `package.json` (and update `package-lock.json`) on a branch.
+2. Merge to `main`.
+3. Tag the merge commit and push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+
+The workflow checks the tag matches `package.json`, runs `npm ci` and `npm run typecheck`, then runs `npm publish --access public --provenance` and creates the GitHub Release with generated notes. Running the workflow manually (`workflow_dispatch`) only does the checks and `npm publish --dry-run`.
+
+One-time npm setup (package settings → Trusted publisher): org `diffbot`, repo `diffbot-pi`, workflow `release.yml`, no environment.
 
 ## Package layout
 
