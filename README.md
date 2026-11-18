@@ -81,7 +81,7 @@ pi -e .
 pi install .
 ```
 
-Depends on [`@diffbot/typescript`](https://www.npmjs.com/package/@diffbot/typescript) from npm.
+0.4.0 depends on [`@diffbot/typescript`](https://www.npmjs.com/package/@diffbot/typescript) ^0.6.0. DQL goes through the SDK `dql()` helper, which posts a JSON body; the token stays a query parameter. `package-lock.json` still records the published 0.3.0 tarball — run `npm update @diffbot/typescript` once 0.6.0 is on npm. A missing crawl job from `crawlGetJob()` is `undefined`.
 
 ## Package layout
 

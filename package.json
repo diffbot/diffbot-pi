@@ -1,6 +1,6 @@
 {
   "name": "@diffbot/pi",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Pi package for Diffbot — structured web knowledge tools for the Pi coding agent",
   "type": "module",
   "license": "MIT",
@@ -39,7 +39,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@diffbot/typescript": "^0.3.0"
+    "@diffbot/typescript": "^0.6.0"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",

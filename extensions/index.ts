@@ -14,6 +14,8 @@ import {
   entities,
   extract,
   webSearch,
+  type ChatMessage,
+  type ExportFormat,
   type JsonObject,
 } from "@diffbot/typescript";
 import { FileOntologyStore, resolveToken } from "@diffbot/typescript/node";
@@ -63,6 +65,23 @@ function fail(
     details: { error: message },
     isError: true,
   };
+}
+
+const EXPORT_FORMATS = ["json", "csv", "xls", "xlsx", "jsonl"] as const;
+
+function asExportFormat(value: string | undefined): ExportFormat {
+  if (value === undefined || value === "json") return "json";
+  if ((EXPORT_FORMATS as readonly string[]).includes(value)) return value as ExportFormat;
+  throw new Error(`Unsupported format "${value}". Use json, csv, xls, xlsx, or jsonl.`);
+}
+
+function toChatMessages(messages: Array<{ role: string; content: string }>): ChatMessage[] {
+  return messages.map((message) => {
+    if (message.role !== "system" && message.role !== "user" && message.role !== "assistant") {
+      throw new Error(`Message role must be system, user, or assistant (got "${message.role}")`);
+    }
+    return { role: message.role, content: message.content };
+  });
 }
 
 function asObject(value: unknown): JsonObject {
@@ -159,7 +178,7 @@ export default function (pi: ExtensionAPI) {
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       try {
         const db = getClient();
-        const format = params.format ?? "json";
+        const format = asExportFormat(params.format);
         // The API rejects `;`-joined bare field paths (422). If the filter is
         // not JsonPath (no `$`), convert `;`-separated field names into the
         // space-separated dot-notation form the API expects.
@@ -448,15 +467,16 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(_toolCallId, params, signal, _onUpdate, _ctx) {
       try {
-        const messages =
+        const drafted =
           params.messages && params.messages.length > 0
             ? params.messages
             : params.prompt
               ? [{ role: "user", content: params.prompt }]
               : null;
-        if (!messages) {
+        if (!drafted) {
           throw new Error("Provide prompt or messages");
         }
+        const messages = toChatMessages(drafted);
         const db = getClient();
         if (params.schema) {
           const answer = await askJson(db, messages, params.schema as JsonObject);
@@ -574,6 +594,12 @@ export default function (pi: ExtensionAPI) {
           ? await crawlGetJob(db, params.jobName)
           : await crawlListJobs(db);
         await db.close();
+        if (params.jobName && data === undefined) {
+          return fail(
+            "diffbot_crawl_jobs",
+            new Error(`No crawl job named "${params.jobName}"`),
+          );
+        }
         return ok(formatJson(data));
       } catch (err) {
         return fail("diffbot_crawl_jobs", err);
