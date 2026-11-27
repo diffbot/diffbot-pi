@@ -95,7 +95,7 @@ The workflow checks that the tag matches `package.json` and that `CHANGELOG.md` 
 
 For a release candidate, use a version such as `0.5.0-rc.0` and tag `v0.5.0-rc.0`. Its CHANGELOG section may be the base `## [0.5.0]` one. Any version containing `-` is published under the npm `next` dist-tag (`latest` is untouched), and its GitHub Release is marked as a prerelease. A final version is published as `latest` and then also moves `next`.
 
-Running the workflow manually (`workflow_dispatch`, action `dry-run`) runs the same checks and `npm publish --dry-run`, and publishes nothing. Action `move-next` only re-points `next` at an already-published version.
+Running the workflow manually (`workflow_dispatch`, action `dry-run`) runs the same checks and a publish rehearsal (`npm publish --dry-run`, or `npm pack` if the version is already on npm), and publishes nothing. Action `move-next` only re-points `next` at an already-published version.
 
 One-time npm setup (package settings → Trusted publisher): org `diffbot`, repo `diffbot-pi`, workflow `release.yml`, no environment.
 
